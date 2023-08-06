@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.location.Location;
 import android.os.IBinder;
 import android.os.Looper;
+import android.security.keystore.KeyProperties;
 
 import androidx.core.app.NotificationCompat;
 
@@ -18,7 +19,16 @@ import com.google.android.gms.location.LocationServices;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+
 public class LocationService extends Service {
+
+    private SecretKey aesKey;
     private FusedLocationProviderClient fusedLocationProviderClient;
     private LocationCallback locationCallback;
 
@@ -37,61 +47,40 @@ public class LocationService extends Service {
                 // Get the best most recent location.
                 Location location = locationResult.getLastLocation();
                 if (location != null) {
-                    // Save location data to Firebase.
-                    DatabaseReference childLocations = FirebaseDatabase.getInstance().getReference("childLocations");
-                    childLocations.setValue(new LocationData(
-                            location.getLatitude(), location.getLongitude()));
+                    // Encrypt location data before saving it to Firebase.
+                    try {
+                        String encryptedLocation = encrypt(location.getLatitude(), location.getLongitude());
+                        DatabaseReference encryptedLocationRef = FirebaseDatabase.getInstance().getReference("encryptedLocation");
+                        encryptedLocationRef.setValue(new LocationData(encryptedLocation)); // Note that LocationData will need to be modified to handle a single String instead of two Doubles.
+                    } catch (Exception e) {
+                        // Handle any encryption errors.
+                        // ...
+                    }
                 }
             }
         };
 
         createNotificationChannel();
-
-        // Generate key for encryption and decryption
-        //generateEncryptionKey();
     } // End of onCreate
-/*
-    private void generateEncryptionKey() {
-        KeyGenerator keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
-        KeyGenParameterSpec.Builder builder = new KeyGenParameterSpec.Builder("MyKeyAlias",
-                KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT);
-        builder.setBlockModes(KeyProperties.BLOCK_MODE_CBC)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7);
-        keyGenerator.init(builder.build());
-        SecretKey key = keyGenerator.generateKey();
-    }
-    private String encryptData(String plaintext) {
-        // To encrypt
+
+    public String encrypt(double lat, double lon) throws Exception {
+        // Convert the doubles to a string
+        String plainText = lat + "," + lon;
+
         Cipher cipher = Cipher.getInstance(KeyProperties.KEY_ALGORITHM_AES + "/" + KeyProperties.BLOCK_MODE_CBC + "/" + KeyProperties.ENCRYPTION_PADDING_PKCS7);
-        cipher.init(Cipher.ENCRYPT_MODE, key);
-        byte[] encrypted = cipher.doFinal("Hello, world!".getBytes(StandardCharsets.UTF_8));
+        cipher.init(Cipher.ENCRYPT_MODE, aesKey);
 
-        // Convert encrypted byte array to string
-        return Base64.encodeToString(encrypted, Base64.DEFAULT);
+        byte[] encryptedBytes = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
+
+        // Prepend the IV to the ciphertext
+        byte[] iv = cipher.getIV();
+        byte[] ivAndCiphertext = new byte[iv.length + encryptedBytes.length];
+        System.arraycopy(iv, 0, ivAndCiphertext, 0, iv.length);
+        System.arraycopy(encryptedBytes, 0, ivAndCiphertext, iv.length, encryptedBytes.length);
+
+        // Encode the IV and ciphertext bytes to a Base64 string
+        return Base64.getEncoder().encodeToString(ivAndCiphertext);
     }
-    private String decryptData(String encryptedData) {
-        // Convert encrypted string to byte array
-        byte[] encrypted = Base64.decode(encryptedData, Base64.DEFAULT);
-
-        // To decrypt
-        cipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(cipher.getIV()));
-        byte[] decrypted = cipher.doFinal(encrypted);
-        String originalString = new String(decrypted, StandardCharsets.UTF_8);
-
-        // Return the decrypted data
-        return originalString;
-    }
-    private void generateEncryptionKey() {
-        KeyGenerator keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
-        KeyGenParameterSpec.Builder builder = new KeyGenParameterSpec.Builder("MyKeyAlias",
-                KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT);
-        builder.setBlockModes(KeyProperties.BLOCK_MODE_CBC)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7);
-        keyGenerator.init(builder.build());
-        SecretKey key = keyGenerator.generateKey();
-    }
-
- */
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -100,6 +89,13 @@ public class LocationService extends Service {
                 .setContentTitle("Location Service")
                 .setContentText("Tracking child location...")
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT);
+
+        // Retrieve the AES key from the intent
+        if (intent != null && intent.hasExtra("aesKey")) {
+            byte[] aesKeyBytes = intent.getByteArrayExtra("aesKey");
+            this.aesKey = new SecretKeySpec(aesKeyBytes, 0, aesKeyBytes.length, "AES");
+        }
+
 
         startForeground(NOTIFICATION_ID, builder.build());
 
