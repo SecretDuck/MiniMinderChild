@@ -27,6 +27,8 @@ import javax.crypto.SecretKey;
 
 public class MainActivity extends AppCompatActivity {
 
+    private DatabaseReference isLocationUpdatingRef;
+    private ValueEventListener isLocationUpdatingListener;
     private SharedViewModel sharedViewModel;
     byte[] salt = new byte[16]; // Define a byte array for the salt
 
@@ -45,28 +47,10 @@ public class MainActivity extends AppCompatActivity {
 
         Button startTrackingButton = findViewById(R.id.btn_startLocUpdates);
         Button stopTrackingButton = findViewById(R.id.btn_stopLocUpdates);
-        Switch sw_updates = findViewById(R.id.sw_updates);
 
-        startTrackingButton.setOnClickListener(v -> {
-            Intent intent = new Intent(this, LocationService.class);
+        startTrackingButton.setOnClickListener(v -> startTracking());
 
-            // Add AES key to the intent
-            SecretKey aesKey = sharedViewModel.getAesKey().getValue();
-            if (aesKey != null) {
-                intent.putExtra("aesKey", aesKey.getEncoded());
-            }
-
-            this.startService(intent);
-            Toast.makeText(this, "STARTED sending location updates", Toast.LENGTH_SHORT).show();
-            sw_updates.setChecked(true);
-        });
-
-        stopTrackingButton.setOnClickListener(v -> {
-            Intent intent = new Intent(this, LocationService.class);
-            this.stopService(intent);
-            Toast.makeText(this, "STOPPED sending location updates", Toast.LENGTH_SHORT).show();
-            sw_updates.setChecked(false);
-        });
+        stopTrackingButton.setOnClickListener(v -> stopTracking());
 
         // Initialise FirebaseApp
         FirebaseApp.initializeApp(this);
@@ -78,9 +62,37 @@ public class MainActivity extends AppCompatActivity {
         String childsPublicKey = Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());
 
         // Send child's public key to Firebase, so parent's app can retrieve and decrypt the data
-        DatabaseReference childPublicKeyRef = FirebaseDatabase.getInstance().getReference("childPublicKey");
-        childPublicKeyRef.setValue(childsPublicKey);
+        sendChildPublicKey(childsPublicKey);
 
+        // Listen for changes to the isLocationUpdating flag
+        DatabaseReference isLocationUpdatingRef = FirebaseDatabase.getInstance().getReference("isLocationUpdating");
+        isLocationUpdatingListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    Boolean isLocationUpdating = snapshot.getValue(Boolean.class);
+
+                    if (isLocationUpdating != null && isLocationUpdating) {
+                        // If the flag is true, then send the child's public key again, just in case it send first time
+                        sendChildPublicKey(childsPublicKey);
+
+                        // Start tracking location
+                        startTracking();
+                    } else {
+                        stopTracking();
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                // Handle database read error
+                Toast.makeText(MainActivity.this, "Database read error", Toast.LENGTH_SHORT).show();
+            }
+        };
+        isLocationUpdatingRef.addValueEventListener(isLocationUpdatingListener);
+
+        // Get parent's public key and generate aesKey
         DatabaseReference parentPublicKeyRef = FirebaseDatabase.getInstance().getReference("parentPublicKey");
         parentPublicKeyRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -112,4 +124,41 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     } // End onCreate here
+
+    // Upon destroying activity, remove the listener to prevent memory leaks
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        isLocationUpdatingRef.removeEventListener(isLocationUpdatingListener);
+    }
+
+    private void sendChildPublicKey(String childsPublicKey) {
+        // Send child's public key to Firebase, so parent's app can retrieve and decrypt the data
+        DatabaseReference childPublicKeyRef = FirebaseDatabase.getInstance().getReference("childPublicKey");
+        childPublicKeyRef.setValue(childsPublicKey);
+    }
+
+    private void startTracking() {
+        Intent intent = new Intent(this, LocationService.class);
+
+        // Add AES key to the intent
+        SecretKey aesKey = sharedViewModel.getAesKey().getValue();
+        if (aesKey != null) {
+            intent.putExtra("aesKey", aesKey.getEncoded());
+        }
+
+        this.startService(intent);
+        Toast.makeText(this, "STARTED sending location updates", Toast.LENGTH_SHORT).show();
+        Switch sw_updates = findViewById(R.id.sw_updates);
+        sw_updates.setChecked(true);
+    }
+
+    private void stopTracking() {
+        Intent intent = new Intent(this, LocationService.class);
+        this.stopService(intent);
+        Toast.makeText(this, "STOPPED sending location updates", Toast.LENGTH_SHORT).show();
+        Switch sw_updates = findViewById(R.id.sw_updates);
+        sw_updates.setChecked(false);
+    }
+
 }
