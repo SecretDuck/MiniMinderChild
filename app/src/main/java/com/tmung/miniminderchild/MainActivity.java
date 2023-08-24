@@ -3,6 +3,7 @@ package com.tmung.miniminderchild;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.lifecycle.ViewModelProvider;
 
 import android.content.Intent;
@@ -12,6 +13,7 @@ import android.widget.Switch;
 import android.widget.Toast;
 
 import com.google.firebase.FirebaseApp;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -27,10 +29,12 @@ import javax.crypto.SecretKey;
 
 public class MainActivity extends AppCompatActivity {
 
+    private FirebaseAuth firebaseAuth;
     private DatabaseReference isLocationUpdatingRef;
     private ValueEventListener isLocationUpdatingListener;
     private SharedViewModel sharedViewModel;
-    byte[] salt = new byte[16]; // Define a byte array for the salt
+    // Define a byte array for the salt
+    byte[] salt = { (byte) 0xa9, (byte) 0x0f, (byte) 0x3b, (byte) 0x7e, (byte) 0xb3, (byte) 0x21, (byte) 0x4a, (byte) 0x6f, (byte) 0x85, (byte) 0xc9, (byte) 0xe0, (byte) 0xf1, (byte) 0x5d, (byte) 0x6c, (byte) 0x7b, (byte) 0x8a };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,10 +51,11 @@ public class MainActivity extends AppCompatActivity {
 
         Button startTrackingButton = findViewById(R.id.btn_startLocUpdates);
         Button stopTrackingButton = findViewById(R.id.btn_stopLocUpdates);
+        Button logoutButton = findViewById(R.id.btnLogout);
 
         startTrackingButton.setOnClickListener(v -> startTracking());
-
         stopTrackingButton.setOnClickListener(v -> stopTracking());
+        logoutButton.setOnClickListener(v -> logout());
 
         // Initialise FirebaseApp
         FirebaseApp.initializeApp(this);
@@ -65,7 +70,7 @@ public class MainActivity extends AppCompatActivity {
         sendChildPublicKey(childsPublicKey);
 
         // Listen for changes to the isLocationUpdating flag
-        DatabaseReference isLocationUpdatingRef = FirebaseDatabase.getInstance().getReference("isLocationUpdating");
+        isLocationUpdatingRef = FirebaseDatabase.getInstance().getReference("isLocationUpdating");
         isLocationUpdatingListener = new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
@@ -128,8 +133,8 @@ public class MainActivity extends AppCompatActivity {
     // Upon destroying activity, remove the listener to prevent memory leaks
     @Override
     protected void onDestroy() {
-        super.onDestroy();
         isLocationUpdatingRef.removeEventListener(isLocationUpdatingListener);
+        super.onDestroy();
     }
 
     private void sendChildPublicKey(String childsPublicKey) {
@@ -159,6 +164,16 @@ public class MainActivity extends AppCompatActivity {
         Toast.makeText(this, "STOPPED sending location updates", Toast.LENGTH_SHORT).show();
         Switch sw_updates = findViewById(R.id.sw_updates);
         sw_updates.setChecked(false);
+    }
+
+    // Method to log out of app
+    public void logout() {
+        firebaseAuth = FirebaseAuth.getInstance();
+        firebaseAuth.signOut();
+
+        // After logging out, navigate back to the LoginActivity
+        startActivity(new Intent(MainActivity.this, LoginActivity.class));
+        finish();
     }
 
 }

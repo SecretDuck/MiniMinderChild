@@ -16,7 +16,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
 public class ChildsKeyExchange {
-    private KeyPair keyPair; // Add this line
+    private KeyPair keyPair;
     private PublicKey parentPublicKey; // Parent's public key received from the parent's app
 
     public KeyPair generateKeyPair() {
