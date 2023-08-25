@@ -153,21 +153,33 @@ public class MainActivity extends AppCompatActivity {
         }
 
         this.startService(intent);
-        Toast.makeText(this, "STARTED sending location updates", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Started sending location updates", Toast.LENGTH_SHORT).show();
         Switch sw_updates = findViewById(R.id.sw_updates);
         sw_updates.setChecked(true);
+
+        // Set the isLocationUpdating flag in the Firebase database to true
+        DatabaseReference isLocationUpdatingRef = FirebaseDatabase.getInstance().getReference("isLocationUpdating");
+        isLocationUpdatingRef.setValue(true);
     }
 
     private void stopTracking() {
         Intent intent = new Intent(this, LocationService.class);
         this.stopService(intent);
-        Toast.makeText(this, "STOPPED sending location updates", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Not sending location updates", Toast.LENGTH_SHORT).show();
         Switch sw_updates = findViewById(R.id.sw_updates);
         sw_updates.setChecked(false);
+
+        // Set the isLocationUpdating flag in the Firebase database to false
+        DatabaseReference isLocationUpdatingRef = FirebaseDatabase.getInstance().getReference("isLocationUpdating");
+        isLocationUpdatingRef.setValue(false);
     }
 
     // Method to log out of app
     public void logout() {
+        // Set the isLocationUpdating flag in the Firebase database to false
+        DatabaseReference isLocationUpdatingRef = FirebaseDatabase.getInstance().getReference("isLocationUpdating");
+        isLocationUpdatingRef.setValue(false);
+
         firebaseAuth = FirebaseAuth.getInstance();
         firebaseAuth.signOut();
 

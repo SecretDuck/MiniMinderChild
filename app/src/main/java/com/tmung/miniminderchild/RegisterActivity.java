@@ -32,7 +32,7 @@ public class RegisterActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_register);  // Using the correct layout file
+        setContentView(R.layout.activity_register);
 
         firebaseAuth = FirebaseAuth.getInstance();
         databaseReference = FirebaseDatabase.getInstance().getReference("users");
@@ -47,7 +47,7 @@ public class RegisterActivity extends AppCompatActivity {
     }
 
     public void register(View view) {
-        String email = edtTxtEmail.getText().toString().trim();
+        final String email = edtTxtEmail.getText().toString().trim();
         String password = edtTxtPass.getText().toString().trim();
         final String parentEmail = edtTxtParentEmail.getText().toString().trim();
 
@@ -57,7 +57,7 @@ public class RegisterActivity extends AppCompatActivity {
                     public void onComplete(@NonNull Task<AuthResult> task) {
                         if (task.isSuccessful()) {
                             // Link child to parent
-                            linkChildToParent(parentEmail);
+                            linkChildToParent(parentEmail, email);
 
                             // Sign up success
                             startActivity(new Intent(RegisterActivity.this, MainActivity.class));
@@ -71,8 +71,8 @@ public class RegisterActivity extends AppCompatActivity {
                 });
     }
 
-    private void linkChildToParent(final String parentEmail) {
-        Query query = databaseReference.orderByChild("email").equalTo(parentEmail);  // Assuming you store email under each user
+    private void linkChildToParent(final String parentEmail, final  String childEmail) {
+        Query query = databaseReference.orderByChild("email").equalTo(parentEmail);
         query.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
@@ -94,6 +94,10 @@ public class RegisterActivity extends AppCompatActivity {
                     if (!parentUserId.isEmpty()) {
                         // Set up the child
                         databaseReference.child(childUserId).child("role").setValue("child");
+                        // set child's email in Firebase
+                        databaseReference.child(childUserId).child("email").setValue(childEmail);
+                        // get the email and store in Firebase
+                        databaseReference.child(childUserId).child("email").setValue(edtTxtEmail.getText().toString().trim());
                         Map<String, Object> linkedAccounts = new HashMap<>();
                         linkedAccounts.put(parentUserId, true);
                         databaseReference.child(childUserId).child("linkedAccounts").setValue(linkedAccounts);

@@ -34,8 +34,7 @@ public class LocationService extends Service {
     private FusedLocationProviderClient fusedLocationProviderClient;
     private LocationCallback locationCallback;
 
-    private final String CHANNEL_ID = "123"; // define your own channel ID
-    private final int NOTIFICATION_ID = 1;
+    private final String CHANNEL_ID = "200";
 
     // Service creation  lifecycle callback
     @Override
@@ -101,12 +100,12 @@ public class LocationService extends Service {
         return Base64.getEncoder().encodeToString(ivAndCiphertext);
     }
 
-    // This is called when the service is started
+    // Called when the service is started
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         // Display a notification for the service
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_notification) // provide your own icon
+                .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle("Location Service")
                 .setContentText("Tracking child location...")
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT);
@@ -117,7 +116,7 @@ public class LocationService extends Service {
             this.aesKey = new SecretKeySpec(aesKeyBytes, 0, aesKeyBytes.length, "AES");
         }
         // Start the service in the foreground
-        startForeground(NOTIFICATION_ID, builder.build());
+        startForeground(1, builder.build());
 
         startLocationUpdates();
 

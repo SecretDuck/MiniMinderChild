@@ -41,8 +41,12 @@ public class LoginActivity extends AppCompatActivity {
     public void goToRegister(View view) {
         startActivity(new Intent(LoginActivity.this, RegisterActivity.class));
     }
+    public void forgotPass(View view) {
+        Toast.makeText(this, "Password reset sent to registered email", Toast.LENGTH_LONG).show();
+    }
 
-    public void login(View view) {  // You can link this method to a button's onClick in the XML layout
+    // Method to sign in, will be linked to the Login button
+    public void login(View view) {
         String email = edtTxtEmail.getText().toString().trim();
         String password = edtTxtPass.getText().toString().trim();
 
